@@ -4,14 +4,20 @@ from typing import Any, List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+from langchain_openai import AzureChatOpenAI
 from pydantic import BaseModel
 
 load_dotenv()
 
 app = FastAPI()
 
-llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=os.environ["OPENAI_API_KEY"])
+model = AzureChatOpenAI(
+    api_key=os.environ["AZURE_OPENAI_API_KEY"],
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    openai_api_version=os.environ["AZURE_OPENAI_API_VERSION"],
+    azure_deployment=os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"],
+)
 
 
 class Question(BaseModel):
@@ -30,16 +36,14 @@ async def post_question(question: Question) -> dict[str, Any]:
         f"Category: Classify the question into one of the following categories: {', '.join(question.category)}\n"
         "Keyword/Phrase: Identify a keyword or phrase that best describes the main topic of the question.\n\n"
         f"Return result in below JSON format:\n"
-        'category: "",\n'
-        'urgency: "",\n'
-        'keyword: ""\n\n'
+        '{category: "",urgency: "",keyword: ""}\n\n'
         f"Question is: {question.question}"
     )
 
     try:
-        response = llm.invoke(prompt).content
-        json_string = response.strip("```json").strip().strip("```")
-        return json.loads(json_string)
+        message = HumanMessage(content=prompt)
+        response = model.invoke([message]).content
+        return json.loads(response)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail="Error processing the question response"
