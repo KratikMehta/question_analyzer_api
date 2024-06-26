@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Any, List
 
 from dotenv import load_dotenv
@@ -20,6 +21,17 @@ model = AzureChatOpenAI(
 )
 
 
+def json_parser(input_string):
+    pattern = r"\{.*\}"
+    match = re.search(pattern, input_string, re.DOTALL)
+    if match:
+        json_string = match.group(0)
+        json_out = json.loads(json_string)
+        return json_out
+    else:
+        return "No JSON found."
+
+
 class Question(BaseModel):
     question: str
     category: List[str]
@@ -36,15 +48,15 @@ async def post_question(question: Question) -> dict[str, Any]:
         f"Category: Classify the question into one of the following categories: {', '.join(question.category)}\n"
         "Keyword/Phrase: Identify a keyword or phrase that best describes the main topic of the question.\n\n"
         f"Return result in below JSON format:\n"
-        '{category: "",urgency: "",keyword: ""}\n\n'
+        '{category: "", urgency: "", keyword: ""}\n\n'
         f"Question is: {question.question}"
     )
 
     try:
         message = HumanMessage(content=prompt)
         response = model.invoke([message]).content
-        return json.loads(response)
+        return json_parser(response)
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail="Error processing the question response"
+            status_code=500, detail=f"Error processing the question response {str(e)}"
         ) from e

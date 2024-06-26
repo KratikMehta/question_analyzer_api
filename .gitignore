@@ -1,4 +1,6 @@
 # Python Environment
-.venv
+.venv/
 
 .env
+
+__pycache__/
